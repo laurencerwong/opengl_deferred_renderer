@@ -1,4 +1,5 @@
 #include <iostream>
+#include <OpenGL/gl3.h>
 #include <glm/glm.hpp>
 #include <GLFW/glfw3.h>
 
@@ -36,32 +37,61 @@ int main(void)
 	printf("Renderer:%s\n", renderer);
 	printf("OpenGL version:%s\n", version);
 
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+
+	float triPoints[] = {
+		0.f, 0.5f, 0.f,
+		0.5f, -0.5f, 0.f,
+		-0.5f, -0.5f, 0.f
+	};
+
+	GLuint vbo = 0;
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(float), triPoints, GL_STATIC_DRAW);
+
+	GLuint vao = 0;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+
+	const char* vertex_shader =
+		"#version 400\n"
+		"in vec3 vp;"
+		"void main () {"
+		"  gl_Position = vec4 (vp, 1.0);"
+		"}";
+
+	const char* fragment_shader =
+		"#version 400\n"
+		"out vec4 frag_colour;"
+		"void main () {"
+		"  frag_colour = vec4 (0.5, 0.0, 0.5, 1.0);"
+		"}";
+
+	GLuint vs = glCreateShader (GL_VERTEX_SHADER);
+	glShaderSource (vs, 1, &vertex_shader, NULL);
+	glCompileShader (vs);
+	GLuint fs = glCreateShader (GL_FRAGMENT_SHADER);
+	glShaderSource (fs, 1, &fragment_shader, NULL);
+	glCompileShader (fs);
+
+	GLuint shader_programme = glCreateProgram ();
+	glAttachShader (shader_programme, fs);
+	glAttachShader (shader_programme, vs);
+	glLinkProgram (shader_programme);
+
 	while(!glfwWindowShouldClose(window))
 	{
-		float ratio;
-		int width, height;
-		glfwGetFramebufferSize(window, &width, &height);
-		ratio = width / static_cast<float>(height);
+		glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glUseProgram(shader_programme);
+		glBindVertexArray(vao);
+		
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
-		glViewport(0, 0, width, height);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		glMatrixMode(GL_PROJECTION);
-		glLoadIdentity();
-		glOrtho(-ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-		glMatrixMode(GL_MODELVIEW);
-
-		glLoadIdentity();
-		glRotatef(static_cast<float>(glfwGetTime()) * 50.f, 0.f, 0.f, 1.f);
-
-		glBegin(GL_TRIANGLES);
-        glColor3f(1.f, 0.f, 0.f);
-        glVertex3f(-0.6f, -0.4f, 0.f);
-        glColor3f(0.f, 1.f, 0.f);
-        glVertex3f(0.6f, -0.4f, 0.f);
-        glColor3f(0.f, 0.f, 1.f);
-        glVertex3f(0.f, 0.6f, 0.f);
-        glEnd();
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
